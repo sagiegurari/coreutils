@@ -81,6 +81,17 @@ dependencies = [
     "test-terse",
 ]
 
+[tasks.ci-flow]
+description = "Full CI Flow"
+category = "[project]"
+dependencies = [
+    "print-env",
+    "lint",
+	"utils",
+    "test",
+    "core::ci-coverage-flow",
+]
+
 [tasks.build]
 description = "Build"
 category = "[project]"

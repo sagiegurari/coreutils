@@ -17,59 +17,6 @@ env:
 on: [push, pull_request]
 
 jobs:
-  style:
-    name: Style
-    runs-on: ${{ matrix.job.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        job:
-          - { os: ubuntu-latest   , features: unix }
-          - { os: macos-latest    , features: unix }
-          - { os: windows-latest  , features: windows }
-    steps:
-    - uses: actions/checkout@v1
-    - name: Initialize workflow variables
-      id: vars
-      shell: bash
-      run: |
-        ## VARs setup
-        # #maint: [rivy; 2020-02-08] 'windows-latest' `cargo fmt` is bugged for this project (see reasons @ GH:rust-lang/rustfmt #3324, #3590, #3688 ; waiting for repair)
-        JOB_DO_FORMAT_TESTING="true"
-        case '${{ matrix.job.os }}' in windows-latest) unset JOB_DO_FORMAT_TESTING ;; esac;
-        echo set-output name=JOB_DO_FORMAT_TESTING::${JOB_DO_FORMAT_TESTING:-<empty>/false}
-        echo ::set-output name=JOB_DO_FORMAT_TESTING::${JOB_DO_FORMAT_TESTING}
-        # target-specific options
-        # * CARGO_FEATURES_OPTION
-        CARGO_FEATURES_OPTION='' ;
-        if [ -n "${{ matrix.job.features }}" ]; then CARGO_FEATURES_OPTION='--features "${{ matrix.job.features }}"' ; fi
-        echo set-output name=CARGO_FEATURES_OPTION::${CARGO_FEATURES_OPTION}
-        echo ::set-output name=CARGO_FEATURES_OPTION::${CARGO_FEATURES_OPTION}
-    - name: Install `rust` toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-        toolchain: stable
-        override: true
-        profile: minimal # minimal component installation (ie, no documentation)
-        components: rustfmt, clippy
-    - name: "`fmt` testing"
-      if: steps.vars.outputs.JOB_DO_FORMAT_TESTING
-      uses: actions-rs/cargo@v1
-      with:
-        command: fmt
-        args: --all -- --check
-    - name: "`fmt` testing of tests"
-      if: steps.vars.outputs.JOB_DO_FORMAT_TESTING
-      shell: bash
-      run: |
-        find tests -name "*.rs" -print0 | xargs -0 cargo fmt -- --check
-    - name: "`clippy` testing"
-      if: success() || failure() # run regardless of prior step success/failure
-      uses: actions-rs/cargo@v1
-      with:
-        command: clippy
-        args: ${{ matrix.job.cargo-options }} ${{ steps.vars.outputs.CARGO_FEATURES_OPTION }} -- -D warnings
-
   min_version:
     name: MinSRV # Minimum supported rust version
     runs-on: ${{ matrix.job.os }}
@@ -433,3 +380,30 @@ jobs:
         flags: ${{ steps.vars.outputs.CODECOV_FLAGS }}
         name: codecov-umbrella
         fail_ci_if_error: true
+
+  ci:
+    name: Continuous Integration
+    runs-on: ${{ matrix.job.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        job:
+          - { os: ubuntu-latest }
+          - { os: macos-latest }
+          - { os: windows-latest }
+          - { os: ubuntu-latest, toolchain: 1.31.0 }
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Install rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: ${{ matrix.job.toolchain }} || stable
+        profile: minimal
+        override: true
+    - uses: davidB/rust-cargo-make@v1
+    - name: Run CI
+      uses: actions-rs/cargo@v1
+      with:
+        command: make
+        args: ci-flow
