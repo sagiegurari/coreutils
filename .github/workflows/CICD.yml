@@ -398,7 +398,7 @@ jobs:
     - name: Install rust
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: ${{ matrix.job.toolchain }} || stable
+        toolchain: ${{ matrix.job.toolchain || 'stable' }}
         profile: minimal
         override: true
     - uses: davidB/rust-cargo-make@v1
