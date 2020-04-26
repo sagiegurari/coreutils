@@ -8,6 +8,7 @@ init_task = "_init"
 
 [config.modify_core_tasks]
 namespace = "core"
+private = true
 
 ### initialization
 
@@ -32,46 +33,40 @@ set_env CARGO_MAKE_CARGO_BUILD_TEST_FLAGS ""
 env_features = get_env CARGO_FEATURES
 if is_empty "${env_features}"
     env_features = get_env FEATURES
-end_if
+end
 if is_empty "${env_features}"
-	if eq "${CARGO_MAKE_RUST_TARGET_OS}" "macos"
-		features = set "unix"
-	else
-		if eq "${CARGO_MAKE_RUST_TARGET_OS}" "linux"
-			features = set "unix"
-		else
-			if eq "${CARGO_MAKE_RUST_TARGET_OS}" "windows"
-				features = set "windows"
-			end_if
-		end_if
-	end_if
-end_if
+	if eq "${CARGO_MAKE_RUST_TARGET_OS}" macos
+		features = set unix
+	elseif eq "${CARGO_MAKE_RUST_TARGET_OS}" linux
+		features = set unix
+    elseif eq "${CARGO_MAKE_RUST_TARGET_OS}" windows
+        features = set windows
+    end
+end
 if is_empty "${features}"
 	features = set "${env_features}"
-else
-	if not is_empty "${env_features}"
-		features = set "${features},${env_features}"
-	end_if
-end_if
+elseif not is_empty "${env_features}"
+    features = set "${features},${env_features}"
+end
 # set build flags from features
 if not is_empty "${features}"
 	set_env CARGO_MAKE_VAR_BUILD_TEST_FEATURES "${features}"
     set_env CARGO_MAKE_CARGO_BUILD_TEST_FLAGS "--features ${features}"
-end_if
+end
 # determine show-utils helper script
 show_utils = set "util/show-utils.sh"
-if eq "${CARGO_MAKE_RUST_TARGET_OS}" "windows"
+if eq "${CARGO_MAKE_RUST_TARGET_OS}" windows
 	show_utils = set "util/show-utils.BAT"
-end_if
+end
 set_env CARGO_MAKE_VAR_SHOW_UTILS "${show_utils}"
 # rebuild TASK_ARGS for "--features" and package-build compatibility (using "," instead of ";")
 args = set ${CARGO_MAKE_TASK_ARGS}
-args = replace ${args} ";" ","
+args = replace ${args} ; ,
 set_env CARGO_MAKE_TASK_BUILD_FEATURES_ARGS "${args}"
-args = replace ${args} "," " -p"
+args = replace ${args} , " -p"
 if not is_empty "${args}"
 	args = set "-p${args}"
-end_if
+end
 set_env CARGO_MAKE_TASK_BUILD_UTILS_ARGS "${args}"
 '''
 ]
@@ -119,6 +114,26 @@ description = "Help"
 category = "[project]"
 command = "cargo"
 args = [ "make", "--list-all-steps" ]
+
+[tasks.print-env]
+description = "Prints the current env info."
+category = "[project]"
+dependencies = [
+    "core::print-env-flow",
+]
+script_runner = "@duckscript"
+script = [
+'''
+echo "*************************************"
+echo "Core Utils Env:"
+echo "    CARGO_MAKE_VAR_BUILD_TEST_FEATURES: ${CARGO_MAKE_VAR_BUILD_TEST_FEATURES}"
+echo "    CARGO_MAKE_CARGO_BUILD_TEST_FLAGS: ${CARGO_MAKE_CARGO_BUILD_TEST_FLAGS}"
+echo "    CARGO_MAKE_VAR_SHOW_UTILS: ${CARGO_MAKE_VAR_SHOW_UTILS}"
+echo "    CARGO_MAKE_TASK_BUILD_FEATURES_ARGS: ${CARGO_MAKE_TASK_BUILD_FEATURES_ARGS}"
+echo "    CARGO_MAKE_TASK_BUILD_UTILS_ARGS: ${CARGO_MAKE_TASK_BUILD_UTILS_ARGS}"
+echo "*************************************"
+'''
+]
 
 [tasks.lint]
 description = "Lint report"
@@ -189,6 +204,9 @@ args = ["build", "--release", "@@split(CARGO_MAKE_TASK_BUILD_UTILS_ARGS, )" ]
 
 [tasks.action-clippy]
 description = "`cargo clippy` lint report"
+dependencies = [
+    "core::install-clippy"
+]
 command = "cargo"
 args = ["clippy", "@@split(CARGO_MAKE_CARGO_BUILD_TEST_FLAGS, )"]
 
@@ -206,25 +224,23 @@ if is_empty "${package_options}"
 		package_options = set "${package_options} -p${util}"
 	end
 	package_options = trim "${package_options}"
-end_if
+end
 set_env CARGO_MAKE_TASK_BUILD_UTILS_ARGS "${package_options}"
 '''
 ]
 
 [tasks.action-format]
 description = "`cargo fmt`"
-command = "cargo"
-args = ["fmt"]
+private = false
+extend = "core::format"
 
 [tasks.action-fmt]
-description = "`cargo fmt`"
-command = "cargo"
-args = ["fmt"]
+alias = "action-format"
 
 [tasks.action-fmt_report]
 description = "`cargo fmt` lint report"
-command = "cargo"
-args = ["fmt", "--", "--check"]
+private = false
+extend = "core::check-format"
 
 [tasks.action-test_quiet]
 description = "Test (in `--quiet` mode)"
