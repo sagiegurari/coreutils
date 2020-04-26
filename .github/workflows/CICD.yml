@@ -401,7 +401,9 @@ jobs:
         toolchain: ${{ matrix.job.toolchain || 'stable' }}
         profile: minimal
         override: true
-    - uses: davidB/rust-cargo-make@v1
+    - uses: davidB/rust-cargo-make@v1      
+      with:
+        version: 'latest'
     - name: Run CI
       uses: actions-rs/cargo@v1
       with:
